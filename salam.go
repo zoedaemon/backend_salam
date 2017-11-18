@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -20,9 +21,9 @@ type Tags struct {
 	//misal kebakaran-lahan, kebakaran/bakar di map sisanya
 	TagsMultiWord []string //column Stemmed
 	//rangking prioritas tags
-	Score float32
+	Score float64
 	//single=1, double=2, more=3; TODO: contoh kata gabungan untuk type more apa ya ?
-	TypeWord byte
+	TypeWord string //byte
 }
 
 func initDB() *sql.DB { //db *sql.DB
@@ -47,9 +48,10 @@ func initDB() *sql.DB { //db *sql.DB
 	return db
 }
 
-func getTags(db *sql.DB) map[string]Tags {
+func getTags(db *sql.DB) map[string]*Tags {
 
-	var NewMapper map[string]Tags
+	var NewMapper map[string]*Tags
+	NewMapper = make(map[string]*Tags)
 
 	// Execute the query
 	rows, err := db.Query("SELECT * FROM tags")
@@ -82,6 +84,9 @@ func getTags(db *sql.DB) map[string]Tags {
 			panic(err.Error()) // proper error handling instead of panic in your app
 		}
 
+		var curr_root_word string
+		//simpan object Tags baru
+		TagsObj := new(Tags)
 		// Now do something with the data.
 		// Here we just print each column as a string.
 		var value string
@@ -90,14 +95,26 @@ func getTags(db *sql.DB) map[string]Tags {
 			if col == nil {
 				value = "NULL"
 			} else {
-				value = string(col)
+				value = string(col) //TODO: pake interface{} aza dah terlalu mahal convert string
 			}
-			if columns[i] == "stemmed" {
+			if columns[i] == "root_word" {
+				curr_root_word = value
+				TagsObj.Root = value
+				TagsObj.Anchestor = value
 				fmt.Println(">> ", columns[i], ": ", value)
+			} else if columns[i] == "stemmed" {
+				fmt.Println(">>-->> ", columns[i], ": ", value)
+			} else if columns[i] == "type_word" {
+				TagsObj.TypeWord = value
+			} else if columns[i] == "score" {
+				TagsObj.Score, _ = strconv.ParseFloat(value, 32)
 			} else {
 				fmt.Println(columns[i], ": ", value)
 			}
 		}
+		//simpan object Tags baru
+		NewMapper[curr_root_word] = TagsObj
+
 		fmt.Println("-----------------------------------")
 	}
 	if err = rows.Err(); err != nil {
