@@ -142,3 +142,81 @@ func getTags(db *sql.DB) map[string]*Tags {
 
 	return NewMapper
 }
+
+func Server(tags_obj map[string]*Tags) {
+	ln, err := net.Listen("tcp", ":1999")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		BufReader := bufio.NewReader(c)
+		for {
+
+			message, _, err := BufReader.ReadLine()
+			if err == io.EOF {
+				fmt.Println("End Of File")
+				break
+			}
+
+			// sample process for string received
+			newmessage := strings.ToLower(string(message))
+			fmt.Println("Message Received:", newmessage)
+
+		}
+		//	d := json.NewDecoder(c)
+		//	go handleConnection(c, d, tags_obj)
+		//defer c.Close()
+	}
+}
+
+func handleConnection(c net.Conn, d *json.Decoder, tags_obj map[string]*Tags) {
+	// we create a decoder that reads directly from the socket
+	//d := json.NewDecoder(c)
+
+	secret := "2183781237693280uijshadj%%$ds"
+
+	var msg Pelaporan
+
+	err := d.Decode(&msg)
+
+	//if strings.Compare(secret, msg.Secret) == 0 {
+	if secret == msg.Secret {
+
+		//menyimpan score total pelaporan
+		var ScoreTotal float64
+
+		fmt.Println(msg, err)
+		// Pecah kalimat menjadi kata-kata menggunakan tokenizer
+		tokenizer := sastrawi.NewTokenizer()
+		words := tokenizer.Tokenize(msg.SMS)
+
+		// Ubah kata berimbuhan menjadi kata dasar
+		stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
+
+		for _, word := range words {
+			SingleStemmed := stemmer.Stem(word)
+			SingleTag, ok := tags_obj[SingleStemmed]
+			if ok {
+				fmt.Printf("XXXXXXX %s => %s XXXXXXX\n", word, SingleStemmed)
+				ScoreTotal += SingleTag.Score
+			} else {
+				fmt.Printf("%s => %s\n", word, SingleStemmed)
+			}
+		}
+
+		fmt.Printf("XXXXXXX ScoreTotal => %f XXXXXXX\n", ScoreTotal)
+
+	} else {
+		fmt.Println("Akses ilegal...!!!")
+	}
+
+	defer c.Close()
+
+}
