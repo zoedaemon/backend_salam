@@ -157,7 +157,10 @@ func Server(tags_obj map[string]*Tags) {
 		return
 	}
 
+	var chanreader chan []byte
+
 	chanscore = make(chan float64)
+
 	ctr := counter()
 
 	for {
@@ -174,13 +177,41 @@ func Server(tags_obj map[string]*Tags) {
 			//messages = make([][]byte, 1)
 			//		go func(c net.Conn) {
 
-			for {
-				message, _, err := bufio.NewReader(c).ReadLine()
-				if err == io.EOF {
-					fmt.Println("EOF")
-					break
-				}
-				messages = append(messages, message)
+			chanreader = make(chan []byte)
+
+			chanEOF := make(chan bool)
+			check := false
+
+			wg.Add(100)
+			for !check {
+
+				go func() {
+
+					defer wg.Done()
+
+					message, _, err := bufio.NewReader(c).ReadLine()
+					if err == io.EOF {
+						fmt.Println("EOF")
+						chanEOF <- true
+					} else {
+						chanreader <- message
+					}
+				}()
+
+				go func() {
+					for valuechan := range chanreader {
+						fmt.Println("append(messages=", string(valuechan), ")")
+						messages = append(messages, valuechan)
+
+						check = <-chanEOF
+					}
+				}()
+
+				go func() {
+					wg.Wait()
+					//close(chanEOF)
+				}()
+
 			}
 
 			wg.Add(len(messages))
@@ -205,6 +236,8 @@ func Server(tags_obj map[string]*Tags) {
 				defer c.Close()
 			}()
 			wg.Wait()
+			//close(chanscore)
+
 		}(c)
 		//	d := json.NewDecoder(c)
 		//	go handleConnection(c, d, tags_obj)
