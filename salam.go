@@ -168,13 +168,13 @@ func Server(tags_obj map[string]*Tags) {
 				//newmessage := strings.ToLower(string(message))
 				//fmt.Println("Message Received:", newmessage)
 				fmt.Println("Message Received:", string(message))
-				handleConnection(message, tags_obj)
+				go handleConnection(message, tags_obj)
 			}
 		}(c)
 
 		//	d := json.NewDecoder(c)
 		//	go handleConnection(c, d, tags_obj)
-		defer c.Close()
+		//defer c.Close()
 	}
 }
 
@@ -182,14 +182,14 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) {
 	// we create a decoder that reads directly from the socket
 	//d := json.NewDecoder(c)
 
-	secret := "2183781237693280uijshadj%%$ds"
+	secret := "2183781237693280uijshadj^^^^ds"
 
 	var msg Pelaporan
 
 	err := json.Unmarshal(newmsg, &msg)
 
 	if err != nil {
-		log.Panicln(err.Error())
+		log.Fatalln(err.Error())
 	}
 
 	//if strings.Compare(secret, msg.Secret) == 0 {
