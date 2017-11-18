@@ -21,7 +21,8 @@ $messages = array(
 	"kebakaran di daerah flamboyan segera kirim pemadam kebakaran skrg",
 	"pembakar lahan wajib ditangkap segera !!!",
 	"penumpukan sampah mengakibatkan banjir disepanjang jalan daerah kasongan",
-	"bakar bakar itu sampah sampai asap kemana-mana"
+	"bakar bakar itu sampah sampai asap kemana-mana",
+
 	);
 
 foreach ($messages as $msg ) {

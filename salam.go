@@ -156,7 +156,6 @@ func Server(tags_obj map[string]*Tags) {
 		return
 	}
 
-	//go func(c net.Conn) {
 	chanscore = make(chan float64)
 
 	for {
@@ -167,41 +166,43 @@ func Server(tags_obj map[string]*Tags) {
 		}
 		//defer c.Close()
 
-		var messages [][]byte
-		//messages = make([][]byte, 1)
-		//		go func(c net.Conn) {
+		go func(c net.Conn) {
 
-		for {
-			message, _, err := bufio.NewReader(c).ReadLine()
-			if err == io.EOF {
-				fmt.Println("EOF")
-				break
-			}
-			messages = append(messages, message)
-		}
+			var messages [][]byte
+			//messages = make([][]byte, 1)
+			//		go func(c net.Conn) {
 
-		wg.Add(len(messages))
-
-		for _, msg := range messages {
-			fmt.Println("msg:", string(msg))
-			go func(message []byte) {
-				defer wg.Done()
-				// sample process for string received
-				//newmessage := strings.ToLower(string(message))
-				//fmt.Println("Message Received:", newmessage)
-				fmt.Println("Message Received:", string(message))
-				chanscore <- handleConnection(message, tags_obj)
-			}(msg)
-		}
-		go func() {
-			for valuechan := range chanscore {
-				fmt.Println("valuechan=", valuechan)
+			for {
+				message, _, err := bufio.NewReader(c).ReadLine()
+				if err == io.EOF {
+					fmt.Println("EOF")
+					break
+				}
+				messages = append(messages, message)
 			}
 
-			defer c.Close()
-		}()
-		wg.Wait()
-		//	}(c)
+			wg.Add(len(messages))
+
+			for _, msg := range messages {
+				fmt.Println("msg:", string(msg))
+				go func(message []byte) {
+					defer wg.Done()
+					// sample process for string received
+					//newmessage := strings.ToLower(string(message))
+					//fmt.Println("Message Received:", newmessage)
+					fmt.Println("Message Received:", string(message))
+					chanscore <- handleConnection(message, tags_obj)
+				}(msg)
+			}
+			go func() {
+				for valuechan := range chanscore {
+					fmt.Println("valuechan=", valuechan)
+				}
+
+				defer c.Close()
+			}()
+			wg.Wait()
+		}(c)
 		//	d := json.NewDecoder(c)
 		//	go handleConnection(c, d, tags_obj)
 
