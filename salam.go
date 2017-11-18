@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"sync"
 	//	"strings"
 
 	"github.com/RadhiFadlillah/go-sastrawi"
@@ -42,6 +43,10 @@ type Tags struct {
 	//single=1, double=2, more=3; TODO: contoh kata gabungan untuk type more apa ya ?
 	TypeWord string //byte
 }
+
+//global variable
+var chanscore chan float64
+var wg sync.WaitGroup
 
 func initDB() *sql.DB { //db *sql.DB
 	fmt.Print("Setting Database...")
@@ -150,38 +155,63 @@ func Server(tags_obj map[string]*Tags) {
 		fmt.Println(err)
 		return
 	}
+
+	//go func(c net.Conn) {
+	chanscore = make(chan float64)
+
 	for {
 		c, err := ln.Accept()
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
+		//defer c.Close()
 
-		go func(c net.Conn) {
-			for {
-				message, _, err := bufio.NewReader(c).ReadLine()
-				if err == io.EOF {
-					fmt.Println("End Of File")
-					break
-				}
+		var messages [][]byte
+		//messages = make([][]byte, 1)
+		//		go func(c net.Conn) {
+
+		for {
+			message, _, err := bufio.NewReader(c).ReadLine()
+			if err == io.EOF {
+				fmt.Println("EOF")
+				break
+			}
+			messages = append(messages, message)
+		}
+
+		wg.Add(len(messages))
+
+		for _, msg := range messages {
+			fmt.Println("msg:", string(msg))
+			go func(message []byte) {
+				defer wg.Done()
 				// sample process for string received
 				//newmessage := strings.ToLower(string(message))
 				//fmt.Println("Message Received:", newmessage)
 				fmt.Println("Message Received:", string(message))
-				go handleConnection(message, tags_obj)
+				chanscore <- handleConnection(message, tags_obj)
+			}(msg)
+		}
+		go func() {
+			for valuechan := range chanscore {
+				fmt.Println("valuechan=", valuechan)
 			}
-			defer c.Close()
-		}(c)
 
+			defer c.Close()
+		}()
+		wg.Wait()
+		//	}(c)
 		//	d := json.NewDecoder(c)
 		//	go handleConnection(c, d, tags_obj)
 
 	}
 }
 
-func handleConnection(newmsg []byte, tags_obj map[string]*Tags) {
+func handleConnection(newmsg []byte, tags_obj map[string]*Tags) float64 {
 	// we create a decoder that reads directly from the socket
 	//d := json.NewDecoder(c)
+	var returnval float64
 
 	secret := "2183781237693280uijshadj^^^^ds"
 
@@ -213,16 +243,18 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) {
 			if ok {
 				fmt.Printf("XXXXXXX %s => %s XXXXXXX\n", word, SingleStemmed)
 				ScoreTotal += SingleTag.Score
+
 			} else {
 				fmt.Printf("%s => %s\n", word, SingleStemmed)
 			}
 		}
 
-		fmt.Printf("XXXXXXX ScoreTotal => %f XXXXXXX\n", ScoreTotal)
-
+		fmt.Printf("-------->>> ScoreTotal => %f <<<--------\n", ScoreTotal)
+		returnval = ScoreTotal
 	} else {
 		fmt.Println("Akses ilegal...!!!")
 	}
 
+	return returnval
 	//defer c.Close()
 }
