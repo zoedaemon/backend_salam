@@ -47,6 +47,7 @@ type Tags struct {
 //global variable
 var chanscore chan float64
 var wg sync.WaitGroup
+var GlobalCounter int
 
 func initDB() *sql.DB { //db *sql.DB
 	fmt.Print("Setting Database...")
@@ -157,6 +158,7 @@ func Server(tags_obj map[string]*Tags) {
 	}
 
 	chanscore = make(chan float64)
+	ctr := counter()
 
 	for {
 		c, err := ln.Accept()
@@ -192,13 +194,14 @@ func Server(tags_obj map[string]*Tags) {
 					//fmt.Println("Message Received:", newmessage)
 					fmt.Println("Message Received:", string(message))
 					chanscore <- handleConnection(message, tags_obj)
+
 				}(msg)
 			}
 			go func() {
 				for valuechan := range chanscore {
 					fmt.Println("valuechan=", valuechan)
+					ctr()
 				}
-
 				defer c.Close()
 			}()
 			wg.Wait()
@@ -258,4 +261,12 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) float64 {
 
 	return returnval
 	//defer c.Close()
+}
+
+func counter() (f func()) {
+	f = func() {
+		GlobalCounter++
+		fmt.Println("COUNTER=", GlobalCounter)
+	}
+	return f
 }
