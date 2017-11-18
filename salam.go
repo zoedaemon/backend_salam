@@ -1,10 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"strconv"
+	"strings"
+
+	"github.com/RadhiFadlillah/go-sastrawi"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -15,7 +22,16 @@ type Pelaporan struct {
 	Secret string `json:"secret"`
 }
 
+type PelaporanCleaned struct {
+	NoTelp     string
+	Pesan      string
+	ScoreTotal float64
+	IsSpam     bool
+	EmbedUrl   string
+}
+
 type Tags struct {
+	id        int64
 	Anchestor string //word root yg asli
 	Root      string
 	//misal kebakaran-lahan, kebakaran/bakar di map sisanya
@@ -103,6 +119,9 @@ func getTags(db *sql.DB) map[string]*Tags {
 				TagsObj.Anchestor = value
 				fmt.Println(">> ", columns[i], ": ", value)
 			} else if columns[i] == "stemmed" {
+				fmt.Println(">>-->> ", columns[i], ": ", value)
+			} else if columns[i] == "int" {
+				TagsObj.id, _ = strconv.ParseInt(value, 10, 64)
 				fmt.Println(">>-->> ", columns[i], ": ", value)
 			} else if columns[i] == "type_word" {
 				TagsObj.TypeWord = value
