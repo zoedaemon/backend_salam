@@ -170,11 +170,12 @@ func Server(tags_obj map[string]*Tags) {
 				fmt.Println("Message Received:", string(message))
 				go handleConnection(message, tags_obj)
 			}
+			defer c.Close()
 		}(c)
 
 		//	d := json.NewDecoder(c)
 		//	go handleConnection(c, d, tags_obj)
-		//defer c.Close()
+
 	}
 }
 
