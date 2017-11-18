@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"strconv"
-	"strings"
+	//	"strings"
 
 	"github.com/RadhiFadlillah/go-sastrawi"
 
@@ -156,27 +157,28 @@ func Server(tags_obj map[string]*Tags) {
 			continue
 		}
 
-		BufReader := bufio.NewReader(c)
-		for {
-
-			message, _, err := BufReader.ReadLine()
-			if err == io.EOF {
-				fmt.Println("End Of File")
-				break
+		go func(c net.Conn) {
+			for {
+				message, _, err := bufio.NewReader(c).ReadLine()
+				if err == io.EOF {
+					fmt.Println("End Of File")
+					break
+				}
+				// sample process for string received
+				//newmessage := strings.ToLower(string(message))
+				//fmt.Println("Message Received:", newmessage)
+				fmt.Println("Message Received:", string(message))
+				handleConnection(message, tags_obj)
 			}
+		}(c)
 
-			// sample process for string received
-			newmessage := strings.ToLower(string(message))
-			fmt.Println("Message Received:", newmessage)
-
-		}
 		//	d := json.NewDecoder(c)
 		//	go handleConnection(c, d, tags_obj)
-		//defer c.Close()
+		defer c.Close()
 	}
 }
 
-func handleConnection(c net.Conn, d *json.Decoder, tags_obj map[string]*Tags) {
+func handleConnection(newmsg []byte, tags_obj map[string]*Tags) {
 	// we create a decoder that reads directly from the socket
 	//d := json.NewDecoder(c)
 
@@ -184,7 +186,11 @@ func handleConnection(c net.Conn, d *json.Decoder, tags_obj map[string]*Tags) {
 
 	var msg Pelaporan
 
-	err := d.Decode(&msg)
+	err := json.Unmarshal(newmsg, &msg)
+
+	if err != nil {
+		log.Panicln(err.Error())
+	}
 
 	//if strings.Compare(secret, msg.Secret) == 0 {
 	if secret == msg.Secret {
@@ -217,6 +223,5 @@ func handleConnection(c net.Conn, d *json.Decoder, tags_obj map[string]*Tags) {
 		fmt.Println("Akses ilegal...!!!")
 	}
 
-	defer c.Close()
-
+	//defer c.Close()
 }
