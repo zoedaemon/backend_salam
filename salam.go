@@ -10,9 +10,9 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
-	//	"strings"
 
 	"github.com/RadhiFadlillah/go-sastrawi"
 
@@ -44,6 +44,9 @@ type Tags struct {
 	//single=1, double=2, more=3; TODO: contoh kata gabungan untuk type more apa ya ?
 	TypeWord string //byte
 }
+
+//hehe nyontek dari https://stackoverflow.com/questions/16551354/how-to-split-a-string-and-assign-it-to-variables-in-golang
+type PyString string
 
 //global variable
 var chanscore chan float64
@@ -121,14 +124,25 @@ func getTags(db *sql.DB) map[string]*Tags {
 			} else {
 				value = string(col) //TODO: pake interface{} aza dah terlalu mahal convert string
 			}
+
 			if columns[i] == "root_word" {
 				curr_root_word = value
 				TagsObj.Root = value
 				TagsObj.Anchestor = value
 				fmt.Println(">> ", columns[i], ": ", value)
 			} else if columns[i] == "stemmed" {
-				fmt.Println(">>-->> ", columns[i], ": ", value)
-			} else if columns[i] == "int" {
+				fmt.Println(">>-STEMMED->> ", value)
+				var Stemmed PyString
+				Stemmed = PyString(value)
+				ArrStem, err := Stemmed.Split(",")
+				if err != nil {
+					fmt.Println(">>-ERROR->> ", err)
+				}
+				fmt.Println(">>-->> ", columns[i], ": ")
+				for _, Stem := range ArrStem {
+					fmt.Println(">>-->>>> ", Stem)
+				}
+			} else if columns[i] == "id" {
 				TagsObj.id, _ = strconv.ParseInt(value, 10, 64)
 				fmt.Println(">>-->> ", columns[i], ": ", value)
 			} else if columns[i] == "type_word" {
@@ -294,10 +308,19 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) float64 {
 	//defer c.Close()
 }
 
+//static counter
 func counter() (f func()) {
 	f = func() {
 		GlobalCounter++
 		fmt.Println("COUNTER=", GlobalCounter)
 	}
 	return f
+}
+
+func (py PyString) Split(str string) ([]string, error) {
+	s := strings.Split(string(py), str)
+	if len(s) < 2 {
+		return s, errors.New("Minimum match not found")
+	}
+	return s, nil
 }
