@@ -109,6 +109,9 @@ func getTags(db *sql.DB) map[string]*Tags {
 		scanArgs[i] = &values[i]
 	}
 
+	//TODO: hapus stemmer di query ini jika yg dari PHP udah slese
+	stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
+
 	// Fetch rows
 	for rows.Next() {
 		// get RawBytes from data
@@ -135,6 +138,7 @@ func getTags(db *sql.DB) map[string]*Tags {
 				curr_root_word = value
 				TagsObj.Root = value
 				TagsObj.Anchestor = value
+				val := stemmer.Stem(value)
 				fmt.Println(">> ", columns[i], ": ", value)
 			} else if columns[i] == "stemmed" {
 				fmt.Println(">>-STEMMED->> ", value)
@@ -163,17 +167,17 @@ func getTags(db *sql.DB) map[string]*Tags {
 						for _, Stem2orMore := range ArrSubStem {
 							var MStem *MultiStemHelper
 							if iterator > 0 {
-								MStem = &MultiStemHelper{Stem2orMore, 1}
+								MStem = &MultiStemHelper{stemmer.Stem(Stem2orMore), 1}
 								iterator++
 							} else {
-								MStem = &MultiStemHelper{Stem2orMore, size_ArrSubStem}
+								MStem = &MultiStemHelper{stemmer.Stem(Stem2orMore), size_ArrSubStem}
 								iterator++
 							}
 							stemmeds = append(stemmeds, MStem)
 							fmt.Println(iterator, "--- 2 > ---", Stem2orMore)
 						}
 					} else {
-						MStem := &MultiStemHelper{Stem, 1}
+						MStem := &MultiStemHelper{stemmer.Stem(Stem), 1}
 						stemmeds = append(stemmeds, MStem)
 						fmt.Println("--- 1 ---", Stem)
 					}
