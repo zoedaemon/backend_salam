@@ -23,6 +23,7 @@ type Pelaporan struct {
 	NoTelp string `json:"no-telp"`
 	SMS    string `json:"sms"`
 	Secret string `json:"secret"`
+	ID     interface{} `json:"id"` //,omitempty //BUG GOLANG : ID ubah jd id akan terjadi error
 }
 
 type PelaporanCleaned struct {
