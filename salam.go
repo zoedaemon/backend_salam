@@ -11,6 +11,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 	//	"strings"
 
 	"github.com/RadhiFadlillah/go-sastrawi"
@@ -157,9 +158,11 @@ func Server(tags_obj map[string]*Tags) {
 		return
 	}
 
-	var chanreader chan []byte
-
-	chanscore = make(chan float64)
+	//var chanreader chan []byte
+	defer func() {
+		ln.Close()
+		fmt.Println("Listener closed...")
+	}()
 
 	ctr := counter()
 
@@ -173,44 +176,25 @@ func Server(tags_obj map[string]*Tags) {
 
 		go func(c net.Conn) {
 
+			timeoutDuration := 5 * time.Second
+			bufreader := bufio.NewReader(c)
+			chanscore = make(chan float64)
+
 			var messages [][]byte
-			//messages = make([][]byte, 1)
-			//		go func(c net.Conn) {
+			for {
+				c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
-			chanreader = make(chan []byte)
+				// Set a deadline for reading. Read operation will fail if no data
+				// is received after deadline.
 
-			chanEOF := make(chan bool)
-			check := false
-
-			wg.Add(100)
-			for !check {
-
-				go func() {
-
-					defer wg.Done()
-
-					message, _, err := bufio.NewReader(c).ReadLine()
-					if err == io.EOF {
-						fmt.Println("EOF")
-						chanEOF <- true
-					} else {
-						chanreader <- message
-					}
-				}()
-
-				go func() {
-					for valuechan := range chanreader {
-						fmt.Println("append(messages=", string(valuechan), ")")
-						messages = append(messages, valuechan)
-
-						check = <-chanEOF
-					}
-				}()
-
-				go func() {
-					wg.Wait()
-					//close(chanEOF)
-				}()
+				//message, _, err := bufio.NewReader(c).ReadLine()
+				message, err := bufreader.ReadBytes('\n')
+				if err == io.EOF {
+					fmt.Println("EOF")
+					break
+				}
+				fmt.Println("append(messages=", string(message), ")")
+				messages = append(messages, message)
 
 			}
 
@@ -225,20 +209,33 @@ func Server(tags_obj map[string]*Tags) {
 					//fmt.Println("Message Received:", newmessage)
 					fmt.Println("Message Received:", string(message))
 					chanscore <- handleConnection(message, tags_obj)
-
 				}(msg)
 			}
+
 			go func() {
+
 				for valuechan := range chanscore {
 					fmt.Println("valuechan=", valuechan)
 					ctr()
 				}
-				defer c.Close()
+				//defer c.Close()
+				// Close connection when this function ends
+				defer func() {
+					fmt.Println("ZZZZzzzzzzz Closing connection...")
+					//c.Close()
+				}()
+
 			}()
-			wg.Wait()
 			//close(chanscore)
 
+			//go func() {
+			wg.Wait()
+			close(chanscore)
+			//}()
+			//time.Sleep(2 * time.Second)
+			//wg.Wait()
 		}(c)
+
 		//	d := json.NewDecoder(c)
 		//	go handleConnection(c, d, tags_obj)
 

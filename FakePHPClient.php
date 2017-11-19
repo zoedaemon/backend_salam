@@ -47,7 +47,8 @@ $messages = array(
 foreach ($messages as $msg ) {
 	$a = socket_write($socket, '{"no-telp":"082297335657", "sms":"'.$msg."\", \"secret\":\"2183781237693280uijshadj^^^^ds\"}\n");
 	echo $msg."\n";
+	var_dump($a);
 }
 
-var_dump($a);
+
 ?>
