@@ -27,26 +27,33 @@ $messages = array(
 	"pembakar lahan wajib ditangkap segera !!!",
 	"penumpukan sampah mengakibatkan banjir disepanjang jalan daerah kasongan",
 	"bakar bakar itu sampah sampai asap kemana-mana",
-	"Terjadi kerusakan jalan di sekitaran jalan rajawali palangkaraya",
-	"Banjir di sekitaran daerah katingan",
-	"malam td rumah kami kebanjiran, dan sampai sekarang belum surut2, tolong kirim bantuan",
-	"kebakaran di daerah flamboyan segera kirim pemadam kebakaran skrg",
-	"pembakar lahan wajib ditangkap segera !!!",
-	"penumpukan sampah mengakibatkan banjir disepanjang jalan daerah kasongan",
-	"bakar bakar itu sampah sampai asap kemana-mana",
-	"Terjadi kerusakan jalan di sekitaran jalan rajawali palangkaraya",
-	"Banjir di sekitaran daerah katingan",
-	"malam td rumah kami kebanjiran, dan sampai sekarang belum surut2, tolong kirim bantuan",
-	"kebakaran di daerah flamboyan segera kirim pemadam kebakaran skrg",
-	"pembakar lahan wajib ditangkap segera !!!",
-	"penumpukan sampah mengakibatkan banjir disepanjang jalan daerah kasongan",
-	"bakar bakar itu sampah sampai asap kemana-mana",
-
+	"Kliatan tuh jalan berlubang di skitaran jalan arah buntok",
+	"lubang di jalan mana tuh harus ditutupin",
+	"parah rusak parah tuh parit di dekat lampu merah tingang"
 	);
 
+
+$server = "localhost";
+$username = "root";
+$database = "salamdb";
+$password = "";
+
+// Koneksi dan memilih database di server
+mysql_connect($server,$username,$password) or die("Koneksi gagal");
+mysql_select_db($database) or die("Database tidak bisa dibuka");
+
+
+
 foreach ($messages as $msg ) {
-	$a = socket_write($socket, '{"no-telp":"082297335657", "sms":"'.$msg."\", \"secret\":\"2183781237693280uijshadj^^^^ds\"}\n");
+	$check_id = TRUE;
+	while ($check_id) {
+		$ID  = rand(1,100);
+		$sql = "SELECT id FROM pelaporan  WHERE id = '$id'";
+		$qry = mysql_query($sql);
+		$check_id = mysql_num_rows($qry);
 		usleep(800000);
+	}
+	$a = socket_write($socket, '{"id":'.$ID.', "no-telp":"082297335657", "sms":"'.$msg."\", \"secret\":\"2183781237693280uijshadj^^^^ds\"}\n");
 	echo $msg."\n";
 	var_dump($a);
 }
