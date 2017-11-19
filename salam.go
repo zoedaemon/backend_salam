@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
+	//	"time"
 
 	"github.com/RadhiFadlillah/go-sastrawi"
 
@@ -233,7 +233,7 @@ func Server(tags_obj map[string]*Tags) {
 			chanscore = make(chan float64)
 			// Set a deadline for reading. Read operation will fail if no data
 			// is received after deadline.
-			c.SetReadDeadline(time.Now().Add(timeoutDuration))
+			//c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
 			var messages [][]byte
 			for {
