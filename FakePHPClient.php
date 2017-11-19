@@ -51,7 +51,7 @@ foreach ($messages as $msg ) {
 		$sql = "SELECT id FROM pelaporan  WHERE id = '$id'";
 		$qry = mysql_query($sql);
 		$check_id = mysql_num_rows($qry);
-		usleep(800000);
+		usleep(2000000);
 	}
 	$a = socket_write($socket, '{"id":'.$ID.', "no-telp":"082297335657", "sms":"'.$msg."\", \"secret\":\"2183781237693280uijshadj^^^^ds\"}\n");
 	echo $msg."\n";

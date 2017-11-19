@@ -20,13 +20,14 @@ import (
 )
 
 type Pelaporan struct {
-	NoTelp string `json:"no-telp"`
-	SMS    string `json:"sms"`
-	Secret string `json:"secret"`
 	ID     interface{} `json:"id"` //,omitempty //BUG GOLANG : ID ubah jd id akan terjadi error
+	NoTelp string      `json:"no-telp"`
+	SMS    string      `json:"sms"`
+	Secret string      `json:"secret"`
 }
 
 type PelaporanCleaned struct {
+	id         int
 	NoTelp     string
 	Pesan      string
 	ScoreTotal float64
@@ -56,7 +57,7 @@ type MultiStemHelper struct {
 type PyString string
 
 //global variable
-var chanscore chan float64
+var chanscore chan *PelaporanCleaned
 var wg sync.WaitGroup
 var GlobalCounter int
 
@@ -121,9 +122,12 @@ func getTags(db *sql.DB) map[string]*Tags {
 			panic(err.Error()) // proper error handling instead of panic in your app
 		}
 
-		var curr_root_word string
 		//simpan object Tags baru
 		TagsObj := new(Tags)
+
+		//menyimpan semua kombinasi string root_word yang mungkin muncul
+		var stemmeds []*MultiStemHelper
+
 		// Now do something with the data.
 		// Here we just print each column as a string.
 		var value string
@@ -136,10 +140,9 @@ func getTags(db *sql.DB) map[string]*Tags {
 			}
 
 			if columns[i] == "root_word" {
-				curr_root_word = value
-				TagsObj.Root = value
-				TagsObj.Anchestor = value
 				val := stemmer.Stem(value)
+				TagsObj.Root = val
+				TagsObj.Anchestor = val
 				fmt.Println(">> ", columns[i], ": ", value)
 			} else if columns[i] == "stemmed" {
 				fmt.Println(">>-STEMMED->> ", value)
@@ -152,9 +155,6 @@ func getTags(db *sql.DB) map[string]*Tags {
 					continue
 				}
 				fmt.Println(">>-->> ", columns[i], ": ")
-
-				//menyimpan semua kombinasi string root_word yang mungkin muncul
-				var stemmeds []*MultiStemHelper
 
 				//TODO: tidak perlu stemming disini karena php sudah melakukannya
 				//		ketika input data ke kolom optional_combination; kolom
@@ -195,8 +195,19 @@ func getTags(db *sql.DB) map[string]*Tags {
 				fmt.Println(columns[i], ": ", value)
 			}
 		}
-		//simpan object Tags baru
-		NewMapper[curr_root_word] = TagsObj
+		//simpan object Tags baru khusus untuk stem word utama
+		NewMapper[TagsObj.Root] = TagsObj
+
+		//pemprosesan stem opsional yang sudah diproses php (kolom stemmed)
+		for _, stem := range stemmeds {
+			TagsObjStem := new(Tags)
+			TagsObjStem.id = TagsObj.id
+			TagsObjStem.Anchestor = TagsObj.Anchestor
+			TagsObjStem.Score = TagsObj.Score
+			TagsObjStem.Root = stem.stem
+
+			NewMapper[stem.stem] = TagsObjStem
+		}
 
 		fmt.Println("-----------------------------------")
 	}
@@ -207,7 +218,7 @@ func getTags(db *sql.DB) map[string]*Tags {
 	return NewMapper
 }
 
-func Server(tags_obj map[string]*Tags) {
+func Server(db *sql.DB, tags_obj map[string]*Tags) {
 	ln, err := net.Listen("tcp", ":1999")
 	if err != nil {
 		fmt.Println(err)
@@ -233,9 +244,9 @@ func Server(tags_obj map[string]*Tags) {
 		go func(c net.Conn) {
 
 			//untuk keperluan melewatkan sms kyknya gak usah lama2 timeoutnya
-			timeoutDuration := 5 * time.Second
+			//timeoutDuration := 5 * time.Second
 			bufreader := bufio.NewReader(c)
-			chanscore = make(chan float64)
+			chanscore = make(chan *PelaporanCleaned)
 			// Set a deadline for reading. Read operation will fail if no data
 			// is received after deadline.
 			//c.SetReadDeadline(time.Now().Add(timeoutDuration))
@@ -272,7 +283,18 @@ func Server(tags_obj map[string]*Tags) {
 			go func() {
 
 				for valuechan := range chanscore {
-					fmt.Println("valuechan=", valuechan)
+					fmt.Println("Proses penyimpanan....valuechan=", valuechan)
+
+					stmt, err := db.Prepare("INSERT INTO pelaporan(id, no_telp, pesan, score_total, is_spam, embed_url) " +
+						"VALUES(?, ?, ?, ?, ?, ?)")
+					if err != nil {
+						log.Fatal(err)
+					}
+					_, err = stmt.Exec(valuechan.id, valuechan.NoTelp, valuechan.Pesan, valuechan.ScoreTotal, valuechan.IsSpam, valuechan.EmbedUrl)
+					if err != nil {
+						log.Fatal(err)
+					}
+					fmt.Println("Simpan Data Berhasil : valuechan=", valuechan)
 					ctr()
 				}
 				//defer c.Close()
@@ -299,10 +321,10 @@ func Server(tags_obj map[string]*Tags) {
 	}
 }
 
-func handleConnection(newmsg []byte, tags_obj map[string]*Tags) float64 {
+func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleaned {
 	// we create a decoder that reads directly from the socket
 	//d := json.NewDecoder(c)
-	var returnval float64
+	var returnval *PelaporanCleaned
 
 	secret := "2183781237693280uijshadj^^^^ds"
 
@@ -340,8 +362,22 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) float64 {
 			}
 		}
 
-		fmt.Printf("-------->>> ScoreTotal => %f <<<--------\n", ScoreTotal)
-		returnval = ScoreTotal
+		fmt.Printf("-------->>> ScoreTotal => %f <<<-------- %d\n", ScoreTotal, msg.ID)
+
+		//json to uint converter
+		//jika msg.id bertipe interface{}
+		var n int
+		if i, ok := msg.ID.(float64); ok { // yeah, JSON numbers are floats, gotcha!
+			n = int(i)
+		} else if s, ok := msg.ID.(string); ok {
+			ni, err := strconv.Atoi(s[1 : len(s)-1])
+			n = int(ni)
+			if err != nil {
+				fmt.Println("FAILED konversi uint")
+			}
+		}
+		msgid := n
+		returnval = &PelaporanCleaned{msgid, msg.NoTelp, msg.SMS, ScoreTotal, false, ""}
 	} else {
 		fmt.Println("Akses ilegal...!!!")
 	}
