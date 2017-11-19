@@ -38,11 +38,17 @@ type Tags struct {
 	Anchestor string //word root yg asli
 	Root      string
 	//misal kebakaran-lahan, kebakaran/bakar di map sisanya
-	TagsMultiWord []string //column Stemmed
+	TagsMultiWord []string //column Stemmed TODO tambah score tuk multi stem
 	//rangking prioritas tags
 	Score float64
 	//single=1, double=2, more=3; TODO: contoh kata gabungan untuk type more apa ya ?
 	TypeWord string //byte
+}
+
+//untuk perulangan pengambilan data-data di kolom stemmed
+type MultiStemHelper struct {
+	stem string //stem saat ini
+	next int    // > 1 untuk pengambilan stem yang akan disimpan di TagsMultiWord
 }
 
 //hehe nyontek dari https://stackoverflow.com/questions/16551354/how-to-split-a-string-and-assign-it-to-variables-in-golang
@@ -134,13 +140,44 @@ func getTags(db *sql.DB) map[string]*Tags {
 				fmt.Println(">>-STEMMED->> ", value)
 				var Stemmed PyString
 				Stemmed = PyString(value)
+
 				ArrStem, err := Stemmed.Split(",")
 				if err != nil {
 					fmt.Println(">>-ERROR->> ", err)
+					continue
 				}
 				fmt.Println(">>-->> ", columns[i], ": ")
+
+				//menyimpan semua kombinasi string root_word yang mungkin muncul
+				var stemmeds []*MultiStemHelper
+
+				//TODO: tidak perlu stemming disini karena php sudah melakukannya
+				//		ketika input data ke kolom optional_combination; kolom
+				//		stemmed adalah hasil stemmingnya (readonly di formnya nanti)
 				for _, Stem := range ArrStem {
-					fmt.Println(">>-->>>> ", Stem)
+					Stem = strings.TrimSpace(Stem)
+					if strings.ContainsAny(Stem, "-") {
+						ArrSubStem := strings.Split(Stem, "-")
+						size_ArrSubStem := len(ArrSubStem)
+						iterator := 0
+						for _, Stem2orMore := range ArrSubStem {
+							var MStem *MultiStemHelper
+							if iterator > 0 {
+								MStem = &MultiStemHelper{Stem2orMore, 1}
+								iterator++
+							} else {
+								MStem = &MultiStemHelper{Stem2orMore, size_ArrSubStem}
+								iterator++
+							}
+							stemmeds = append(stemmeds, MStem)
+							fmt.Println(iterator, "--- 2 > ---", Stem2orMore)
+						}
+					} else {
+						MStem := &MultiStemHelper{Stem, 1}
+						stemmeds = append(stemmeds, MStem)
+						fmt.Println("--- 1 ---", Stem)
+					}
+
 				}
 			} else if columns[i] == "id" {
 				TagsObj.id, _ = strconv.ParseInt(value, 10, 64)
