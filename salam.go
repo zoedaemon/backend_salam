@@ -176,16 +176,17 @@ func Server(tags_obj map[string]*Tags) {
 
 		go func(c net.Conn) {
 
+			//untuk keperluan melewatkan sms kyknya gak usah lama2 timeoutnya
 			timeoutDuration := 5 * time.Second
 			bufreader := bufio.NewReader(c)
 			chanscore = make(chan float64)
+			// Set a deadline for reading. Read operation will fail if no data
+			// is received after deadline.
+			c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
 			var messages [][]byte
 			for {
-				c.SetReadDeadline(time.Now().Add(timeoutDuration))
-
-				// Set a deadline for reading. Read operation will fail if no data
-				// is received after deadline.
+				//				c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
 				//message, _, err := bufio.NewReader(c).ReadLine()
 				message, err := bufreader.ReadBytes('\n')
