@@ -15,6 +15,6 @@ func main() {
 	TagsObj = getTags(DB)
 
 	fmt.Println("Running SALAM Service...")
-	Server(TagsObj)
+	Server(DB, TagsObj)
 	//defer DB.Close()
 }
