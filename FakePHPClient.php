@@ -8,6 +8,11 @@ if( $connection ){
     echo 'ONLINE';
 }
 else {
+	//TODO: Jika golang server (BACKEND binary GoServer) mati (sebelum dihidupkan kembali oleh Supervisor), 
+	//		yg harus dilakukan adalah simpan sms ke table antrian yang belum diproses; usahakan bisa satu servis 
+	//		dengan BACKEND binary GoServer (goroutine terpisah) yang bisa mengecek table antrian tsb, jd gak perlu 
+	//		servis lain untuk mengecek secar berkala data yg masuk ke table antrian
+
     echo 'OFFLINE: ' . socket_strerror(socket_last_error( $socket ));
 }
 

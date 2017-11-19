@@ -36,6 +36,11 @@ if ($arr = mysql_fetch_array($qry)) {
 	    echo 'ONLINE';
 	}
 	else {
+		//TODO: Jika golang server (BACKEND binary GoServer) mati (sebelum dihidupkan kembali oleh Supervisor), 
+		//		yg harus dilakukan adalah simpan sms ke table antrian yang belum diproses; usahakan bisa satu servis 
+		//		dengan BACKEND binary GoServer (goroutine terpisah) yang bisa mengecek table antrian tsb, jd gak perlu 
+		//		servis lain untuk mengecek secar berkala data yg masuk ke table antrian
+		//NOTE : gunakan table "queue_failed_sms" mysql yang dah dibuat  ini
 	    echo 'OFFLINE: ' . socket_strerror(socket_last_error( $socket ));
 	}
 	$a = socket_write($socket, '{"no-telp":"'.$arr['SenderNumber'].'", "sms":"'.$arr['TextDecoded'].'", "secret":"2183781237693280uijshadj%%$ds"}');
