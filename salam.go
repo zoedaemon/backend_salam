@@ -180,19 +180,21 @@ func Server(tags_obj map[string]*Tags) {
 			chanreader = make(chan []byte)
 
 			chanEOF := make(chan bool)
-			check := false
 
-			wg.Add(100)
-			for !check {
+			var check bool
+			check = false
 
+			for {
+
+				wg.Add(1)
 				go func() {
-
 					defer wg.Done()
-
 					message, _, err := bufio.NewReader(c).ReadLine()
 					if err == io.EOF {
 						fmt.Println("EOF")
 						chanEOF <- true
+						check = true
+						return
 					} else {
 						chanreader <- message
 					}
@@ -202,18 +204,30 @@ func Server(tags_obj map[string]*Tags) {
 					for valuechan := range chanreader {
 						fmt.Println("append(messages=", string(valuechan), ")")
 						messages = append(messages, valuechan)
-
-						check = <-chanEOF
 					}
 				}()
 
 				go func() {
-					wg.Wait()
 					//close(chanEOF)
+					//check = <-chanEOF
+
+					wg.Wait()
+					return
 				}()
+
+				for valueEOF := range chanEOF {
+					check = valueEOF
+				}
+
+				//
+				if check {
+					break
+				}
+				//<-chanEOF
 
 			}
 
+			//goroutine aktif ???
 			wg.Add(len(messages))
 
 			for _, msg := range messages {
