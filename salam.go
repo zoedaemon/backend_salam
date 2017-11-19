@@ -186,9 +186,9 @@ func Server(tags_obj map[string]*Tags) {
 
 			var messages [][]byte
 			for {
-				//				c.SetReadDeadline(time.Now().Add(timeoutDuration))
+				//c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
-				//message, _, err := bufio.NewReader(c).ReadLine()
+				//message, _, err := bufio.NewReader(c).ReadLine()//hahaha bug ini
 				message, err := bufreader.ReadBytes('\n')
 				if err == io.EOF {
 					fmt.Println("EOF")
