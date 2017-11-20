@@ -294,6 +294,19 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 
 					fmt.Println("Proses penyimpanan....valuechan=", valuechan)
 
+					// cek duplikat row
+					que := fmt.Sprintf("SELECT id FROM pelaporan WHERE id=%d", valuechan.id)
+					var id float64
+					err := db.QueryRow(que).Scan(&id)
+					if err != nil {
+						fmt.Println("Query gagal...", err)
+					}
+
+					if id > 0 {
+						fmt.Println("XXXxx Duplikat entry...!!! ", id)
+						continue
+					}
+
 					stmt, err := db.Prepare("INSERT INTO pelaporan(id, no_telp, pesan, score_total, is_spam, embed_url) " +
 						"VALUES(?, ?, ?, ?, ?, ?)")
 					if err != nil {

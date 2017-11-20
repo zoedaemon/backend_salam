@@ -42,17 +42,23 @@ $password = "";
 mysql_connect($server,$username,$password) or die("Koneksi gagal");
 mysql_select_db($database) or die("Database tidak bisa dibuka");
 
-
+$lastID = array();
 
 foreach ($messages as $msg ) {
-	$check_id = TRUE;
-	while ($check_id) {
+	$check_id = 1;
+	$ID  = rand(1,100);
+
+	while ($check_id > 0  && !in_array($ID, $lastID)) {
 		$ID  = rand(1,100);
-		$sql = "SELECT id FROM pelaporan  WHERE id = '$id'";
+		$sql = "SELECT id FROM pelaporan  WHERE id = '$ID'";
 		$qry = mysql_query($sql);
 		$check_id = mysql_num_rows($qry);
-		//usleep(2000000);
+		//usleep(1500000);
+
+		var_dump($ID);
 	}
+	$lastID[] = $ID;
+	var_dump($lastID);
 	$a = socket_write($socket, '{"id":'.$ID.', "no-telp":"082297335657", "sms":"'.$msg."\", \"secret\":\"2183781237693280uijshadj^^^^ds\"}\n");
 	echo $msg."\n";
 	var_dump($a);
