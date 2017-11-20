@@ -283,6 +283,15 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 			go func() {
 
 				for valuechan := range chanscore {
+
+					defer func() {
+						// recover from panic if one occured. Set err to nil otherwise.
+						if recover() != nil {
+							err := errors.New("array index out of bounds")
+							fmt.Println("PANICCCC...", err)
+						}
+					}()
+
 					fmt.Println("Proses penyimpanan....valuechan=", valuechan)
 
 					stmt, err := db.Prepare("INSERT INTO pelaporan(id, no_telp, pesan, score_total, is_spam, embed_url) " +

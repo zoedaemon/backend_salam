@@ -3,6 +3,7 @@ package main
 
 import (
 	"database/sql"
+	//	"errors"
 	"fmt"
 	//	"strings"
 )
@@ -16,5 +17,6 @@ func main() {
 
 	fmt.Println("Running SALAM Service...")
 	Server(DB, TagsObj)
+
 	//defer DB.Close()
 }
