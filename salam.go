@@ -348,7 +348,7 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleane
 	//d := json.NewDecoder(c)
 	var returnval *PelaporanCleaned
 
-	secret := "2183781237693280uijshadj^^^^ds"
+	secret := "2183781237693280uijshads"
 
 	var msg Pelaporan
 

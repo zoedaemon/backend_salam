@@ -43,7 +43,7 @@ if ($arr = mysql_fetch_array($qry)) {
 		//NOTE : gunakan table "queue_failed_sms" mysql yang dah dibuat  ini
 	    echo 'OFFLINE: ' . socket_strerror(socket_last_error( $socket ));
 	}
-	$a = socket_write($socket, '{"id":"'.$arr['ID'].'", "no-telp":"'.$arr['SenderNumber'].'", "sms":"'.$arr['TextDecoded']."\", \"secret\":\"2183781237693280uijshadj^^^^ds\"}\n");
+	$a = socket_write($socket, '{"id":'.$arr['ID'].', "no-telp":"'.$arr['SenderNumber'].'", "sms":"'.$arr['TextDecoded']."\", \"secret\":\"2183781237693280uijshads\"}\n");
 	var_dump($a);
 
 	mysql_query("UPDATE inbox SET processed='true' WHERE ID='".$arr['ID']."'");

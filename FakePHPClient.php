@@ -59,7 +59,7 @@ foreach ($messages as $msg ) {
 	}
 	$lastID[] = $ID;
 	var_dump($lastID);
-	$a = socket_write($socket, '{"id":'.$ID.', "no-telp":"082297335657", "sms":"'.$msg."\", \"secret\":\"2183781237693280uijshadj^^^^ds\"}\n");
+	$a = socket_write($socket, '{"id":'.$ID.', "no-telp":"082297335657", "sms":"'.$msg."\", \"secret\":\"2183781237693280uijshads\"}\n");
 	echo $msg."\n";
 	var_dump($a);
 }
