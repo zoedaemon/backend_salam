@@ -33,6 +33,9 @@ type PelaporanCleaned struct {
 	ScoreTotal float64
 	IsSpam     bool
 	EmbedUrl   string
+
+	//hehe kelupaan
+	TagsOccurence []*Tags
 }
 
 type Tags struct {
@@ -307,6 +310,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 						continue
 					}
 
+					//TODO: buat operasi INSERT lebih sederhana
 					stmt, err := db.Prepare("INSERT INTO pelaporan(id, no_telp, pesan, score_total, is_spam, embed_url) " +
 						"VALUES(?, ?, ?, ?, ?, ?)")
 					if err != nil {
@@ -317,6 +321,35 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 						log.Fatal(err)
 					}
 					fmt.Println("Simpan Data Berhasil : valuechan=", valuechan)
+					fmt.Println("----- : AllTags=", valuechan.TagsOccurence)
+					for _, tag := range valuechan.TagsOccurence {
+						fmt.Println("----->>>> ", tag.id, " : Tag=", tag.Root, "; Ancestor=", tag.Root)
+
+						que := fmt.Sprintf("SELECT id FROM pelaporan_tags WHERE id_pelaporan=%d"+
+							" AND id_tags=%d", valuechan.id, tag.id)
+						var id float64
+						err := db.QueryRow(que).Scan(&id)
+						if err != nil {
+							fmt.Println("Query gagal...", err)
+						}
+						//lewatkan aza klo data dah ada
+						if id > 0 {
+							fmt.Println("XXXxx Duplikat entry...!!! ", id)
+							continue
+						}
+
+						stmt, err := db.Prepare("INSERT INTO pelaporan_tags(id_pelaporan, id_tags) " +
+							"VALUES(?, ?)")
+						if err != nil {
+							log.Fatal(err)
+						}
+						_, err = stmt.Exec(valuechan.id, tag.id)
+						if err != nil {
+							log.Fatal(err)
+						}
+						fmt.Println("Simpan Tag Berhasil...")
+					}
+
 					ctr()
 				}
 				//defer c.Close()
@@ -372,13 +405,14 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleane
 		// Ubah kata berimbuhan menjadi kata dasar
 		stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
 
+		var TagsOccurence []*Tags
 		for _, word := range words {
 			SingleStemmed := stemmer.Stem(word)
 			SingleTag, ok := tags_obj[SingleStemmed]
 			if ok {
 				fmt.Printf("XXXXXXX %s => %s XXXXXXX\n", word, SingleStemmed)
 				ScoreTotal += SingleTag.Score
-
+				TagsOccurence = append(TagsOccurence, SingleTag)
 			} else {
 				fmt.Printf("%s => %s\n", word, SingleStemmed)
 			}
@@ -399,7 +433,7 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleane
 			}
 		}
 		msgid := n
-		returnval = &PelaporanCleaned{msgid, msg.NoTelp, msg.SMS, ScoreTotal, false, ""}
+		returnval = &PelaporanCleaned{msgid, msg.NoTelp, msg.SMS, ScoreTotal, false, "", TagsOccurence}
 	} else {
 		fmt.Println("Akses ilegal...!!!")
 	}
