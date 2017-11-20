@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	//	"time"
+	"time"
 
 	"github.com/RadhiFadlillah/go-sastrawi"
 
@@ -244,7 +244,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 		go func(c net.Conn) {
 
 			//untuk keperluan melewatkan sms kyknya gak usah lama2 timeoutnya
-			//timeoutDuration := 5 * time.Second
+			timeoutDuration := 5 * time.Second
 			bufreader := bufio.NewReader(c)
 			chanscore = make(chan *PelaporanCleaned)
 			// Set a deadline for reading. Read operation will fail if no data
@@ -253,7 +253,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 
 			var messages [][]byte
 			for {
-				//c.SetReadDeadline(time.Now().Add(timeoutDuration))
+				c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
 				//message, _, err := bufio.NewReader(c).ReadLine()//hahaha bug ini
 				message, err := bufreader.ReadBytes('\n')
