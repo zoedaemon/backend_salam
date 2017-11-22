@@ -73,7 +73,7 @@ func initDB(data_source string) *sql.DB { //db *sql.DB
 
 	if err != nil {
 		fmt.Println("FAILED")
-		panic(errors.New("error opening db : " + err.Error()))
+		log.Panicln(errors.New("error opening db : " + err.Error()))
 	} else {
 		fmt.Println("OK")
 	}
@@ -82,7 +82,7 @@ func initDB(data_source string) *sql.DB { //db *sql.DB
 	err = db.Ping()
 	if err != nil {
 		fmt.Println("FAILED")
-		panic(errors.New("connected but something wrong : " + err.Error()))
+		log.Panicln(errors.New("connected but something wrong : " + err.Error()))
 	} else {
 		fmt.Println("OK")
 	}
@@ -97,13 +97,13 @@ func getTags(db *sql.DB) map[string]*Tags {
 	// Execute the query
 	rows, err := db.Query("SELECT * FROM tags")
 	if err != nil {
-		panic(err.Error()) // proper error handling instead of panic in your app
+		log.Panicln(err.Error()) // proper error handling instead of panic in your app
 	}
 
 	// Get column names
 	columns, err := rows.Columns()
 	if err != nil {
-		panic(err.Error()) // proper error handling instead of panic in your app
+		log.Panicln(err.Error()) // proper error handling instead of panic in your app
 	}
 
 	// Make a slice for the values
@@ -125,7 +125,7 @@ func getTags(db *sql.DB) map[string]*Tags {
 		// get RawBytes from data
 		err = rows.Scan(scanArgs...)
 		if err != nil {
-			panic(err.Error()) // proper error handling instead of panic in your app
+			log.Panicln(err.Error()) // proper error handling instead of panic in your app
 		}
 
 		//simpan object Tags baru
@@ -218,7 +218,7 @@ func getTags(db *sql.DB) map[string]*Tags {
 		fmt.Println("-----------------------------------")
 	}
 	if err = rows.Err(); err != nil {
-		panic(err.Error()) // proper error handling instead of panic in your app
+		log.Panicln(err.Error()) // proper error handling instead of panic in your app
 	}
 
 	return NewMapper
@@ -230,6 +230,22 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 		fmt.Println(err)
 		return
 	}
+
+	defer func() {
+		// recover from panic if one occured. Set err to nil otherwise.
+		if recover() != nil {
+			err := errors.New("MySQL Error")
+			fmt.Println("PANICCCC...", err)
+			//mencegah koneksi mati, harus cek pas SELECT query,
+			//klo Ping() langsung malah dikira masih aktif, anehhh..
+			//..is it go-sql-driver BUG ???
+			//TODO: Panggil Pinger dulu jika terjadi panic data
+			//	harus tersimpan dulu di temp penyimpanan,
+			//	mungkin file tmp kyk C-lang, jd jika tereset bs
+			//	ulang proses penyimpanan data dr file tmp
+			db = Pinger(db)
+		}
+	}()
 
 	//var chanreader chan []byte
 	defer func() {
@@ -249,6 +265,21 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 
 		go func(c net.Conn) {
 
+			defer func() {
+				// recover from panic if one occured. Set err to nil otherwise.
+				if val := recover(); val != nil {
+					//err := errors.New("MySQL Error")
+					fmt.Println("PANICCCC...", val)
+					//mencegah koneksi mati, harus cek pas SELECT query,
+					//klo Ping() langsung malah dikira masih aktif, anehhh..
+					//..is it go-sql-driver BUG ???
+					//TODO: Panggil Pinger dulu jika terjadi panic data
+					//	harus tersimpan dulu di temp penyimpanan,
+					//	mungkin file tmp kyk C-lang, jd jika tereset bs
+					//	ulang proses penyimpanan data dr file tmp
+					db = Pinger(db)
+				}
+			}()
 			//untuk keperluan melewatkan sms kyknya gak usah lama2 timeoutnya
 			timeoutDuration := 5 * time.Second
 			bufreader := bufio.NewReader(c)
@@ -460,4 +491,29 @@ func (py PyString) Split(str string) ([]string, error) {
 		return s, errors.New("Minimum match not found")
 	}
 	return s, nil
+}
+
+func Pinger(db *sql.DB) *sql.DB {
+	// Reconnect TODO : bisa sederhanakan dengan cek langsung lewat for loop
+	err := db.Ping()
+	if err != nil {
+		for {
+			fmt.Println("FAILED : try to reconnect...")
+			db.Close()
+			var err error
+			db, err = sql.Open("mysql", DataSource)
+			//ping ulang
+			err = db.Ping()
+			if err != nil {
+				continue
+			} else {
+				break //reconnect berhasil
+			}
+			time.Sleep(time.Second * 1)
+		}
+	} else {
+		fmt.Println("Connection OK")
+	}
+
+	return db
 }
