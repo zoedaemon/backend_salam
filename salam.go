@@ -63,10 +63,13 @@ type PyString string
 var chanscore chan *PelaporanCleaned
 var wg sync.WaitGroup
 var GlobalCounter int
+var DataSource string
 
-func initDB() *sql.DB { //db *sql.DB
+func initDB(data_source string) *sql.DB { //db *sql.DB
 	fmt.Print("Setting Database...")
-	db, err := sql.Open("mysql", "root:@/salamdb")
+	//simpan data source k variable global
+	DataSource = data_source
+	db, err := sql.Open("mysql", data_source)
 
 	if err != nil {
 		fmt.Println("FAILED")

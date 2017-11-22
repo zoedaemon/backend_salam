@@ -12,7 +12,7 @@ func main() {
 	var TagsObj map[string]*Tags
 	var DB *sql.DB
 
-	DB = initDB()
+	DB = initDB("root:@/salamdb")
 	TagsObj = getTags(DB)
 
 	fmt.Println("Running SALAM Service...")
