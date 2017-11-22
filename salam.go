@@ -64,6 +64,8 @@ var chanscore chan *PelaporanCleaned
 var wg sync.WaitGroup
 var GlobalCounter int
 var DataSource string
+var secret_conn = "2183781237693280uijshads\n" //secret code tuk koneksi beda di baris baru za XD
+var secret = "2183781237693280uijshads"
 
 func initDB(data_source string) *sql.DB { //db *sql.DB
 	fmt.Print("Setting Database...")
@@ -298,9 +300,17 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 					fmt.Println("EOF")
 					break
 				}
-				fmt.Println("append(messages=", string(message), ")")
-				messages = append(messages, message)
-
+				//cek koneksi apakah valid dari PHPCLient.php (misalnya)
+				if i == 0 && string(message) != secret_conn {
+					log.Panic("invalid connection")
+					return
+				} else {
+					i++
+					if string(message) != secret_conn {
+						fmt.Println("append(messages=", string(message), ")")
+						messages = append(messages, message)
+					}
+				}
 			}
 
 			wg.Add(len(messages))
@@ -313,7 +323,11 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 					//newmessage := strings.ToLower(string(message))
 					//fmt.Println("Message Received:", newmessage)
 					fmt.Println("Message Received:", string(message))
-					chanscore <- handleConnection(message, tags_obj)
+					handler := handleConnection(message, tags_obj)
+					if handler == nil {
+						return
+					}
+					chanscore <- handler
 				}(msg)
 			}
 
@@ -415,7 +429,6 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleane
 	//d := json.NewDecoder(c)
 	var returnval *PelaporanCleaned
 
-	secret := "2183781237693280uijshads"
 
 	var msg Pelaporan
 
