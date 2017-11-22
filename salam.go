@@ -257,6 +257,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 
 	ctr := counter()
 
+	//proses tiap request yg masuk
 	for {
 		c, err := ln.Accept()
 		if err != nil {
@@ -291,6 +292,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 			//c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
 			var messages [][]byte
+			var i = 0
 			for {
 				c.SetReadDeadline(time.Now().Add(timeoutDuration))
 
@@ -335,22 +337,16 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 
 				for valuechan := range chanscore {
 
-					defer func() {
-						// recover from panic if one occured. Set err to nil otherwise.
-						if recover() != nil {
-							err := errors.New("array index out of bounds")
-							fmt.Println("PANICCCC...", err)
-						}
-					}()
-
 					fmt.Println("Proses penyimpanan....valuechan=", valuechan)
 
 					// cek duplikat row
 					que := fmt.Sprintf("SELECT id FROM pelaporan WHERE id=%d", valuechan.id)
-					var id float64
+					var id int
 					err := db.QueryRow(que).Scan(&id)
 					if err != nil {
-						fmt.Println("Query gagal...", err)
+						if err.Error() != "sql: no rows in result set" {
+							log.Panicln("Query gagal...", err)
+						}
 					}
 
 					if id > 0 {
@@ -362,11 +358,11 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 					stmt, err := db.Prepare("INSERT INTO pelaporan(id, no_telp, pesan, score_total, is_spam, embed_url) " +
 						"VALUES(?, ?, ?, ?, ?, ?)")
 					if err != nil {
-						log.Fatal(err)
+						log.Panicln(err)
 					}
 					_, err = stmt.Exec(valuechan.id, valuechan.NoTelp, valuechan.Pesan, valuechan.ScoreTotal, valuechan.IsSpam, valuechan.EmbedUrl)
 					if err != nil {
-						log.Fatal(err)
+						log.Panicln(err)
 					}
 					fmt.Println("Simpan Data Berhasil : valuechan=", valuechan)
 					fmt.Println("----- : AllTags=", valuechan.TagsOccurence)
@@ -375,25 +371,27 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 
 						que := fmt.Sprintf("SELECT id FROM pelaporan_tags WHERE id_pelaporan=%d"+
 							" AND id_tags=%d", valuechan.id, tag.id)
-						var id float64
+						var id int
 						err := db.QueryRow(que).Scan(&id)
 						if err != nil {
-							fmt.Println("Query gagal...", err)
+							if err.Error() != "sql: no rows in result set" {
+								log.Panicln("Query gagal...", err)
+							}
 						}
 						//lewatkan aza klo data dah ada
 						if id > 0 {
-							fmt.Println("XXXxx Duplikat entry...!!! ", id)
+							fmt.Println("XXXxx Duplikat tags...!!! ", id)
 							continue
 						}
 
 						stmt, err := db.Prepare("INSERT INTO pelaporan_tags(id_pelaporan, id_tags) " +
 							"VALUES(?, ?)")
 						if err != nil {
-							log.Fatal(err)
+							log.Panicln(err)
 						}
 						_, err = stmt.Exec(valuechan.id, tag.id)
 						if err != nil {
-							log.Fatal(err)
+							log.Panicln(err)
 						}
 						fmt.Println("Simpan Tag Berhasil...")
 					}
@@ -404,7 +402,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 				// Close connection when this function ends
 				defer func() {
 					fmt.Println("ZZZZzzzzzzz Closing connection...")
-					//c.Close()
+					c.Close() //TODO: belum ditest neh
 				}()
 
 			}()
@@ -429,13 +427,29 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleane
 	//d := json.NewDecoder(c)
 	var returnval *PelaporanCleaned
 
-
 	var msg Pelaporan
+
+	defer func() {
+		// recover from panic if one occured. Set err to nil otherwise.
+		if recover() != nil {
+			err := errors.New("handleConnection Error : " + string(newmsg))
+			fmt.Println("PANICCCC...", err)
+			//mencegah koneksi mati, harus cek pas SELECT query,
+			//klo Ping() langsung malah dikira masih aktif, anehhh..
+			//..is it go-sql-driver BUG ???
+			//TODO: Panggil Pinger dulu jika terjadi panic data
+			//	harus tersimpan dulu di temp penyimpanan,
+			//	mungkin file tmp kyk C-lang, jd jika tereset bs
+			//	ulang proses penyimpanan data dr file tmp
+			//db = Pinger(db)
+			return
+		}
+	}()
 
 	err := json.Unmarshal(newmsg, &msg)
 
 	if err != nil {
-		log.Fatalln(err.Error())
+		log.Panicln(err.Error())
 	}
 
 	//if strings.Compare(secret, msg.Secret) == 0 {
@@ -482,7 +496,8 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleane
 		msgid := n
 		returnval = &PelaporanCleaned{msgid, msg.NoTelp, msg.SMS, ScoreTotal, false, "", TagsOccurence}
 	} else {
-		fmt.Println("Akses ilegal...!!!")
+		fmt.Println("Akses ilegal...!!!") //TODO: kok gak muncul
+		log.Panicln("Akses ilegal...!!!")
 	}
 
 	return returnval
