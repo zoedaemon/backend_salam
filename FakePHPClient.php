@@ -1,5 +1,6 @@
 <?php
 echo "Send to server";
+error_reporting( E_ALL & ~E_NOTICE ^ E_DEPRECATED); 
 define(NO_SQL_CHECK, FALSE);
 $secret = "2183781237693280uijshads";
 
@@ -22,8 +23,8 @@ else {
 Warning: socket_write(): unable to write to socket [0]: An established connection was aborted by the software in your host machine.
 */
 $messages = array(
-	"kebakaran di daerah flamboyan segera kirim pemadam kebakaran skrg",
-	"Terjadi kerusakan jalan di sekitaran jalan rajawali palangkaraya",
+	"kebakaran di daerah jalan rusak flamboyan segera kirim pemadam kebakaran skrg",
+/*	"Terjadi kerusakan jalan di sekitaran jalan rajawali palangkaraya",
 	"Banjir di sekitaran daerah katingan",
 	"malam td rumah kami kebanjiran, dan sampai sekarang belum surut2, tolong kirim bantuan",
 	"kebakaran di daerah flamboyan segera kirim pemadam kebakaran skrg",
@@ -32,35 +33,39 @@ $messages = array(
 	"bakar bakar itu sampah sampai asap kemana-mana",
 	"Kliatan tuh jalan berlubang di skitaran jalan arah buntok",
 	"lubang di jalan mana tuh harus ditutupin",
-	"parah rusak parah tuh parit di dekat lampu merah tingang"
+	"parah rusak parah tuh parit di dekat lampu merah tingang"*/
 	);
 
 
 $server = "localhost";
-$username = "root";
+$username = "phpmyadmin";
 $database = "salamdb";
-$password = "";
+$password = "adm19adm89";
 
 // Koneksi dan memilih database di server
 if (!NO_SQL_CHECK) {
-	mysql_connect($server,$username,$password) or die("Koneksi gagal");
-	mysql_select_db($database) or die("Database tidak bisa dibuka");
+	$mysqli = new mysqli($server,$username,$password, $database) ;
+	if ($mysqli->connect_errno) {
+	    echo "Failed to connect to MySQL: (" . $mysqli->connect_errno . ") " . $mysqli->connect_error;
+	}
+	echo $mysqli->host_info . "\n";
 }
 $lastID = array();
 
 foreach ($messages as $msg ) {
 	$check_id = 1;
-	$ID  = rand(1,100);
+	$ID  = rand(1,500);
 
 	if (!NO_SQL_CHECK) {
 
 		while ($check_id > 0  && !in_array($ID, $lastID)) {
 			$ID  = rand(1,100);
-			$sql = "SELECT id FROM pelaporan  WHERE id = '$ID'";
-			$qry = mysql_query($sql);
-			$check_id = mysql_num_rows($qry);
-			//usleep(1500000);
+			$sql = "SELECT id FROM pelaporan WHERE id = '$ID'";
+			$qry = $mysqli->query($sql);
 
+			$check_id = $qry->num_rows;
+			//usleep(1500000);
+			$qry->close();
 			var_dump($ID);
 		}
 	}
