@@ -4,13 +4,16 @@ echo "Direct Reply SMS";
 $secret = "2183781237693280uijshads";
 
 $server = "localhost";
-$username = "root";
+$username = "phpmyadmin";
 $database = "gammu";
-$password = "";
+$password = "adm19adm89";
 
 // Koneksi dan memilih database di server
-mysql_connect($server,$username,$password) or die("Koneksi gagal");
-mysql_select_db($database) or die("Database tidak bisa dibuka");
+$mysqli = new mysqli($server,$username,$password, $database) ;
+if ($mysqli->connect_errno) {
+    echo "Failed to connect to MySQL: (" . $mysqli->connect_errno . ") " . $mysqli->connect_error;
+}
+echo $mysqli->host_info . "\n";
 
 /*
 $sql = "SELECT ID, SenderNumber, TextDecoded FROM inbox WHERE processed = 'false'";
@@ -27,9 +30,10 @@ while ($arr = mysql_fetch_array($qry)) {
 //mysql_query("INSERT INTO outbox(DestinationNumber, TextDecoded) VALUES ('082297335657','Balasan Otomatis dari Gammu')") or die(mysql_error());
 
 $sql = "SELECT ID, SenderNumber, TextDecoded FROM inbox WHERE processed = 'false' ORDER BY ReceivingDateTime DESC";
-$qry = mysql_query($sql) or die(mysql_error());
+$qry = $mysqli->query($sql);
+
  
-if ($arr = mysql_fetch_array($qry)) {
+if ($arr = $qry->fetch_array(MYSQLI_BOTH)) {
 	$socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 	$connection =  @socket_connect($socket, '127.0.0.1', 1999);
 
@@ -51,7 +55,8 @@ if ($arr = mysql_fetch_array($qry)) {
 	$a = socket_write($socket, '{"id":'.$arr['ID'].', "no-telp":"'.$arr['SenderNumber'].'", "sms":"'.$arr['TextDecoded']."\", \"secret\":\"$secret\"}\n");
 	var_dump($a);
 
-	mysql_query("UPDATE inbox SET processed='true' WHERE ID='".$arr['ID']."'");
-	echo mysql_error();
+	$sql = "UPDATE inbox SET processed='true' WHERE ID='".$arr['ID']."'";
+	$qry = $mysqli->query($sql);
+	echo $qry->error;
 }
 ?>
