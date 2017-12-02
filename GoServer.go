@@ -14,9 +14,10 @@ func main() {
 
 	DB = initDB("phpmyadmin:adm19adm89@/salamdb")
 	TagsObj = getTags(DB)
+	LokasiObj := getLokasi(DB)
 
 	fmt.Println("Running SALAM Service...")
-	Server(DB, TagsObj)
+	Server(DB, TagsObj, LokasiObj)
 
 	//defer DB.Close()
 }

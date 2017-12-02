@@ -50,6 +50,14 @@ type Tags struct {
 	TypeWord string //byte
 }
 
+type Lokasi struct {
+	id         int64
+	NamaLokasi string
+	Parent     string //Lokasi Parent
+	Score      float64
+	Timestamp  string
+}
+
 //untuk perulangan pengambilan data-data di kolom stemmed
 type MultiStemHelper struct {
 	stem string //stem saat ini
@@ -226,7 +234,7 @@ func getTags(db *sql.DB) map[string]*Tags {
 	return NewMapper
 }
 
-func Server(db *sql.DB, tags_obj map[string]*Tags) {
+func Server(db *sql.DB, tags_obj map[string]*Tags, lokasi_obj map[string]*Lokasi) {
 	ln, err := net.Listen("tcp", ":1999")
 	if err != nil {
 		fmt.Println(err)
@@ -325,7 +333,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 					//newmessage := strings.ToLower(string(message))
 					//fmt.Println("Message Received:", newmessage)
 					fmt.Println("Message Received:", string(message))
-					handler := handleConnection(message, tags_obj)
+					handler := handleConnection(message, tags_obj, lokasi_obj)
 					if handler == nil {
 						return
 					}
@@ -422,7 +430,7 @@ func Server(db *sql.DB, tags_obj map[string]*Tags) {
 	}
 }
 
-func handleConnection(newmsg []byte, tags_obj map[string]*Tags) *PelaporanCleaned {
+func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[string]*Lokasi) *PelaporanCleaned {
 	// we create a decoder that reads directly from the socket
 	//d := json.NewDecoder(c)
 	var returnval *PelaporanCleaned
@@ -544,4 +552,139 @@ func Pinger(db *sql.DB) *sql.DB {
 	}
 
 	return db
+}
+
+func getLokasi(db *sql.DB) map[string]*Lokasi {
+
+	var NewMapper map[string]*Lokasi
+	NewMapper = make(map[string]*Lokasi)
+
+	// Execute the query
+	rows, err := db.Query("SELECT * FROM lokasi")
+	if err != nil {
+		log.Panicln(err.Error()) // proper error handling instead of panic in your app
+	}
+
+	// Get column names
+	columns, err := rows.Columns()
+	if err != nil {
+		log.Panicln(err.Error()) // proper error handling instead of panic in your app
+	}
+
+	// Make a slice for the values
+	values := make([]sql.RawBytes, len(columns))
+
+	// rows.Scan wants '[]interface{}' as an argument, so we must copy the
+	// references into such a slice
+	// See http://code.google.com/p/go-wiki/wiki/InterfaceSlice for details
+	scanArgs := make([]interface{}, len(values))
+	for i := range values {
+		scanArgs[i] = &values[i]
+	}
+
+	//TODO: hapus stemmer di query ini jika yg dari PHP udah slese
+	stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
+
+	// Fetch rows
+	for rows.Next() {
+		// get RawBytes from data
+		err = rows.Scan(scanArgs...)
+		if err != nil {
+			log.Panicln(err.Error()) // proper error handling instead of panic in your app
+		}
+
+		//simpan object Tags baru
+		TagsObj := new(Tags)
+
+		//menyimpan semua kombinasi string root_word yang mungkin muncul
+		var stemmeds []*MultiStemHelper
+
+		// Now do something with the data.
+		// Here we just print each column as a string.
+		var value string
+		for i, col := range values {
+			// Here we can check if the value is nil (NULL value)
+			if col == nil {
+				value = "NULL"
+			} else {
+				value = string(col) //TODO: pake interface{} aza dah terlalu mahal convert string
+			}
+
+			if columns[i] == "root_word" {
+				val := stemmer.Stem(value)
+				TagsObj.Root = val
+				TagsObj.Anchestor = val
+				fmt.Println(">> ", columns[i], ": ", value)
+			} else if columns[i] == "stemmed" {
+				fmt.Println(">>-STEMMED->> ", value)
+				var Stemmed PyString
+				Stemmed = PyString(value)
+
+				ArrStem, err := Stemmed.Split(",")
+				if err != nil {
+					fmt.Println(">>-ERROR->> ", err)
+					continue
+				}
+				fmt.Println(">>-->> ", columns[i], ": ")
+
+				//TODO: tidak perlu stemming disini karena php sudah melakukannya
+				//		ketika input data ke kolom optional_combination; kolom
+				//		stemmed adalah hasil stemmingnya (readonly di formnya nanti)
+				for _, Stem := range ArrStem {
+					Stem = strings.TrimSpace(Stem)
+					if strings.ContainsAny(Stem, "-") {
+						ArrSubStem := strings.Split(Stem, "-")
+						size_ArrSubStem := len(ArrSubStem)
+						iterator := 0
+						for _, Stem2orMore := range ArrSubStem {
+							var MStem *MultiStemHelper
+							if iterator > 0 {
+								MStem = &MultiStemHelper{stemmer.Stem(Stem2orMore), 1}
+								iterator++
+							} else {
+								MStem = &MultiStemHelper{stemmer.Stem(Stem2orMore), size_ArrSubStem}
+								iterator++
+							}
+							stemmeds = append(stemmeds, MStem)
+							fmt.Println(iterator, "--- 2 > ---", Stem2orMore)
+						}
+					} else {
+						MStem := &MultiStemHelper{stemmer.Stem(Stem), 1}
+						stemmeds = append(stemmeds, MStem)
+						fmt.Println("--- 1 ---", Stem)
+					}
+
+				}
+			} else if columns[i] == "id" {
+				TagsObj.id, _ = strconv.ParseInt(value, 10, 64)
+				fmt.Println(">>-->> ", columns[i], ": ", value)
+			} else if columns[i] == "type_word" {
+				TagsObj.TypeWord = value
+			} else if columns[i] == "score" {
+				TagsObj.Score, _ = strconv.ParseFloat(value, 32)
+			} else {
+				fmt.Println(columns[i], ": ", value)
+			}
+		}
+		//simpan object Tags baru khusus untuk stem word utama
+		NewMapper[TagsObj.Root] = TagsObj
+
+		//pemprosesan stem opsional yang sudah diproses php (kolom stemmed)
+		for _, stem := range stemmeds {
+			TagsObjStem := new(Tags)
+			TagsObjStem.id = TagsObj.id
+			TagsObjStem.Anchestor = TagsObj.Anchestor
+			TagsObjStem.Score = TagsObj.Score
+			TagsObjStem.Root = stem.stem
+
+			NewMapper[stem.stem] = TagsObjStem
+		}
+
+		fmt.Println("-----------------------------------")
+	}
+	if err = rows.Err(); err != nil {
+		log.Panicln(err.Error()) // proper error handling instead of panic in your app
+	}
+
+	return NewMapper
 }
