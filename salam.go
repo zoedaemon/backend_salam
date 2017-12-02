@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net"
@@ -384,7 +385,9 @@ func Server(db *sql.DB, tags_obj map[string]*Tags, lokasi_obj map[string]*Lokasi
 					if err != nil {
 						log.Panicln(err)
 					}
-					_, err = stmt.Exec(valuechan.id, valuechan.NoTelp, valuechan.Pesan, valuechan.ScoreTotal, valuechan.IsSpam, valuechan.EmbedUrl)
+					//demi nama keamanan...
+					PesanSecured := template.HTMLEscapeString(valuechan.Pesan)
+					_, err = stmt.Exec(valuechan.id, valuechan.NoTelp, PesanSecured, valuechan.ScoreTotal, valuechan.IsSpam, valuechan.EmbedUrl)
 					if err != nil {
 						log.Panicln(err)
 					}
