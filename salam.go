@@ -50,6 +50,12 @@ type Tags struct {
 	TypeWord string //byte
 }
 
+//untuk perulangan pengambilan data-data di kolom stemmed
+type MultiStemHelper struct {
+	stem string //stem saat ini
+	next int    // > 1 untuk pengambilan stem yang akan disimpan di TagsMultiWord
+}
+
 type Lokasi struct {
 	id         int64
 	NamaLokasi string
@@ -58,10 +64,15 @@ type Lokasi struct {
 	Timestamp  string
 }
 
-//untuk perulangan pengambilan data-data di kolom stemmed
-type MultiStemHelper struct {
-	stem string //stem saat ini
-	next int    // > 1 untuk pengambilan stem yang akan disimpan di TagsMultiWord
+var keterangan_tempat = map[string]bool{
+	"di":       true,
+	"dijln":    true,
+	"di jln":   true,
+	"di jalan": true,
+	"d":        true,
+	"djln":     true,
+	"d jln":    true,
+	"d jalan":  true,
 }
 
 //hehe nyontek dari https://stackoverflow.com/questions/16551354/how-to-split-a-string-and-assign-it-to-variables-in-golang
@@ -475,7 +486,48 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 		stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
 
 		var TagsOccurence []*Tags
+		skipper := 0
+		last_word := ""
 		for _, word := range words {
+			if keterangan_tempat[word] {
+				fmt.Println("Cek lokasi 1...")
+				last_word = word
+				skipper = 1
+				continue
+			}
+			if skipper > 0 {
+				fmt.Println("Cek lokasi 2...")
+				//cek apakah keterangan tempat non tunggal
+				if keterangan_tempat[last_word+" "+word] {
+					fmt.Println("Cek lokasi 3...")
+					last_word = "" //kosongkan untuk pemprosesan nama kelurahan
+					skipper = 1
+					continue
+				} else if skipper < 2 {
+					last_word = "" //reset last_word, dgn asumsi keterangan t4nya tunggal
+				}
+				word = last_word + " " + word
+				//TODO: tolower
+				SingleLokasi, ok := lokasi_obj[strings.TrimSpace(word)]
+				if ok {
+					fmt.Printf("########## %s => %s #########\n", word, SingleLokasi.NamaLokasi)
+					skipper = 0
+				} else {
+					//asumsi nama kelurahan hanya 2 kata saja, jgn paksa menemukan t4 yg valid
+					if skipper >= 3 {
+						skipper = 0
+						goto CEKSTEM //jump to CEKSTEM tuk melanjutkan pemprosesan tags
+					}
+					last_word = last_word + " " + strings.TrimSpace(word)
+					skipper++
+					fmt.Println(last_word, ", ", skipper)
+					continue
+				}
+
+				skipper--
+				continue
+			}
+		CEKSTEM:
 			SingleStemmed := stemmer.Stem(word)
 			SingleTag, ok := tags_obj[SingleStemmed]
 			if ok {
@@ -555,9 +607,12 @@ func Pinger(db *sql.DB) *sql.DB {
 }
 
 func getLokasi(db *sql.DB) map[string]*Lokasi {
-
+	var LokasiObj *Lokasi
 	var NewMapper map[string]*Lokasi
 	NewMapper = make(map[string]*Lokasi)
+
+	//TODO: hapus stemmer di query ini jika yg dari PHP udah slese
+	//stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
 
 	// Execute the query
 	rows, err := db.Query("SELECT * FROM lokasi")
@@ -565,123 +620,23 @@ func getLokasi(db *sql.DB) map[string]*Lokasi {
 		log.Panicln(err.Error()) // proper error handling instead of panic in your app
 	}
 
-	// Get column names
-	columns, err := rows.Columns()
-	if err != nil {
-		log.Panicln(err.Error()) // proper error handling instead of panic in your app
-	}
-
-	// Make a slice for the values
-	values := make([]sql.RawBytes, len(columns))
-
-	// rows.Scan wants '[]interface{}' as an argument, so we must copy the
-	// references into such a slice
-	// See http://code.google.com/p/go-wiki/wiki/InterfaceSlice for details
-	scanArgs := make([]interface{}, len(values))
-	for i := range values {
-		scanArgs[i] = &values[i]
-	}
-
-	//TODO: hapus stemmer di query ini jika yg dari PHP udah slese
-	stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
-
 	// Fetch rows
 	for rows.Next() {
+		LokasiObj = new(Lokasi)
+		//simpan object Tags baru
+		//		TagsObj := new(Tags)
+
 		// get RawBytes from data
-		err = rows.Scan(scanArgs...)
+		err = rows.Scan(&LokasiObj.id, &LokasiObj.NamaLokasi, &LokasiObj.Parent, &LokasiObj.Score, &LokasiObj.Timestamp)
 		if err != nil {
 			log.Panicln(err.Error()) // proper error handling instead of panic in your app
 		}
 
-		//simpan object Tags baru
-		TagsObj := new(Tags)
-
-		//menyimpan semua kombinasi string root_word yang mungkin muncul
-		var stemmeds []*MultiStemHelper
-
-		// Now do something with the data.
-		// Here we just print each column as a string.
-		var value string
-		for i, col := range values {
-			// Here we can check if the value is nil (NULL value)
-			if col == nil {
-				value = "NULL"
-			} else {
-				value = string(col) //TODO: pake interface{} aza dah terlalu mahal convert string
-			}
-
-			if columns[i] == "root_word" {
-				val := stemmer.Stem(value)
-				TagsObj.Root = val
-				TagsObj.Anchestor = val
-				fmt.Println(">> ", columns[i], ": ", value)
-			} else if columns[i] == "stemmed" {
-				fmt.Println(">>-STEMMED->> ", value)
-				var Stemmed PyString
-				Stemmed = PyString(value)
-
-				ArrStem, err := Stemmed.Split(",")
-				if err != nil {
-					fmt.Println(">>-ERROR->> ", err)
-					continue
-				}
-				fmt.Println(">>-->> ", columns[i], ": ")
-
-				//TODO: tidak perlu stemming disini karena php sudah melakukannya
-				//		ketika input data ke kolom optional_combination; kolom
-				//		stemmed adalah hasil stemmingnya (readonly di formnya nanti)
-				for _, Stem := range ArrStem {
-					Stem = strings.TrimSpace(Stem)
-					if strings.ContainsAny(Stem, "-") {
-						ArrSubStem := strings.Split(Stem, "-")
-						size_ArrSubStem := len(ArrSubStem)
-						iterator := 0
-						for _, Stem2orMore := range ArrSubStem {
-							var MStem *MultiStemHelper
-							if iterator > 0 {
-								MStem = &MultiStemHelper{stemmer.Stem(Stem2orMore), 1}
-								iterator++
-							} else {
-								MStem = &MultiStemHelper{stemmer.Stem(Stem2orMore), size_ArrSubStem}
-								iterator++
-							}
-							stemmeds = append(stemmeds, MStem)
-							fmt.Println(iterator, "--- 2 > ---", Stem2orMore)
-						}
-					} else {
-						MStem := &MultiStemHelper{stemmer.Stem(Stem), 1}
-						stemmeds = append(stemmeds, MStem)
-						fmt.Println("--- 1 ---", Stem)
-					}
-
-				}
-			} else if columns[i] == "id" {
-				TagsObj.id, _ = strconv.ParseInt(value, 10, 64)
-				fmt.Println(">>-->> ", columns[i], ": ", value)
-			} else if columns[i] == "type_word" {
-				TagsObj.TypeWord = value
-			} else if columns[i] == "score" {
-				TagsObj.Score, _ = strconv.ParseFloat(value, 32)
-			} else {
-				fmt.Println(columns[i], ": ", value)
-			}
-		}
-		//simpan object Tags baru khusus untuk stem word utama
-		NewMapper[TagsObj.Root] = TagsObj
-
-		//pemprosesan stem opsional yang sudah diproses php (kolom stemmed)
-		for _, stem := range stemmeds {
-			TagsObjStem := new(Tags)
-			TagsObjStem.id = TagsObj.id
-			TagsObjStem.Anchestor = TagsObj.Anchestor
-			TagsObjStem.Score = TagsObj.Score
-			TagsObjStem.Root = stem.stem
-
-			NewMapper[stem.stem] = TagsObjStem
-		}
-
-		fmt.Println("-----------------------------------")
+		fmt.Println(LokasiObj)
+		NewMapper[strings.ToLower(LokasiObj.NamaLokasi)] = LokasiObj
+		fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 	}
+	//fmt.Println(NewMapper)
 	if err = rows.Err(); err != nil {
 		log.Panicln(err.Error()) // proper error handling instead of panic in your app
 	}
