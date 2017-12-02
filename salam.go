@@ -35,7 +35,8 @@ type PelaporanCleaned struct {
 	EmbedUrl   string
 
 	//hehe kelupaan
-	TagsOccurence []*Tags
+	TagsOccurence   []*Tags
+	LokasiOccurence []*Lokasi
 }
 
 type Tags struct {
@@ -419,6 +420,19 @@ func Server(db *sql.DB, tags_obj map[string]*Tags, lokasi_obj map[string]*Lokasi
 						fmt.Println("Simpan Tag Berhasil...")
 					}
 
+					for _, lokasi := range valuechan.LokasiOccurence {
+						fmt.Println("-----ZZZZZ ", lokasi.id, " : Lokasi=", lokasi.NamaLokasi, "; ")
+						stmt, err := db.Prepare("INSERT INTO pelaporan_lokasi(id_pelaporan, id_lokasi) " +
+							"VALUES(?, ?)")
+						if err != nil {
+							log.Panicln(err)
+						}
+						_, err = stmt.Exec(valuechan.id, lokasi.id)
+						if err != nil {
+							log.Panicln(err)
+						}
+						fmt.Println("Simpan Lokasi Berhasil...")
+					}
 					ctr()
 				}
 				//defer c.Close()
@@ -490,6 +504,7 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 		stemmer := sastrawi.NewStemmer(sastrawi.DefaultDictionary)
 
 		var TagsOccurence []*Tags
+		var LokasiOccurence []*Lokasi
 		skipper := 0
 		last_word := ""
 		last_word_main := ""
@@ -546,11 +561,20 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 
 			//antisipasi kata t4 tidak memiliki kata penghubung di keterangan_tempat
 			check_word_main = last_word_main + " " + strings.TrimSpace(word)
+			//cek 1 kata t4
+			if last_word_main != "" {
+				SingleLokasi, ok := lokasi_obj[strings.TrimSpace(last_word_main)]
+				if ok {
+					fmt.Printf("########## %s => %s #########\n", word, SingleLokasi.NamaLokasi)
+					LokasiOccurence = append(LokasiOccurence, SingleLokasi)
+				}
+			}
+			//cek 1 kata t4
 			last_word_main = word
 			SingleLokasi, ok := lokasi_obj[strings.TrimSpace(check_word_main)]
 			if ok {
 				fmt.Printf("########## %s => %s #########\n", word, SingleLokasi.NamaLokasi)
-				skipper = 0 //jgn cek lokasi lg kata selanjutnya
+				LokasiOccurence = append(LokasiOccurence, SingleLokasi)
 			}
 
 		}
@@ -570,7 +594,7 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 			}
 		}
 		msgid := n
-		returnval = &PelaporanCleaned{msgid, msg.NoTelp, msg.SMS, ScoreTotal, false, "", TagsOccurence}
+		returnval = &PelaporanCleaned{msgid, msg.NoTelp, msg.SMS, ScoreTotal, false, "", TagsOccurence, LokasiOccurence}
 	} else {
 		fmt.Println("Akses ilegal...!!!") //TODO: kok gak muncul
 		log.Panicln("Akses ilegal...!!!")
