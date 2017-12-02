@@ -65,14 +65,18 @@ type Lokasi struct {
 }
 
 var keterangan_tempat = map[string]bool{
-	"di":       true,
-	"dijln":    true,
-	"di jln":   true,
-	"di jalan": true,
-	"d":        true,
-	"djln":     true,
-	"d jln":    true,
-	"d jalan":  true,
+	"di":           true,
+	"dijln":        true,
+	"di jln":       true,
+	"di jalan":     true,
+	"d":            true,
+	"djln":         true,
+	"d jln":        true,
+	"d jalan":      true,
+	"kelurahan":    true,
+	"dikelurahan":  true,
+	"di kelurahan": true,
+	"di klurahan":  true,
 }
 
 //hehe nyontek dari https://stackoverflow.com/questions/16551354/how-to-split-a-string-and-assign-it-to-variables-in-golang
@@ -488,6 +492,8 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 		var TagsOccurence []*Tags
 		skipper := 0
 		last_word := ""
+		last_word_main := ""
+		check_word_main := ""
 		for _, word := range words {
 			if keterangan_tempat[word] {
 				fmt.Println("Cek lokasi 1...")
@@ -511,7 +517,7 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 				SingleLokasi, ok := lokasi_obj[strings.TrimSpace(word)]
 				if ok {
 					fmt.Printf("########## %s => %s #########\n", word, SingleLokasi.NamaLokasi)
-					skipper = 0
+					skipper = 0 //jgn cek lokasi lg kata selanjutnya
 				} else {
 					//asumsi nama kelurahan hanya 2 kata saja, jgn paksa menemukan t4 yg valid
 					if skipper >= 3 {
@@ -537,6 +543,16 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 			} else {
 				fmt.Printf("%s => %s\n", word, SingleStemmed)
 			}
+
+			//antisipasi kata t4 tidak memiliki kata penghubung di keterangan_tempat
+			check_word_main = last_word_main + " " + strings.TrimSpace(word)
+			last_word_main = word
+			SingleLokasi, ok := lokasi_obj[strings.TrimSpace(check_word_main)]
+			if ok {
+				fmt.Printf("########## %s => %s #########\n", word, SingleLokasi.NamaLokasi)
+				skipper = 0 //jgn cek lokasi lg kata selanjutnya
+			}
+
 		}
 
 		fmt.Printf("-------->>> ScoreTotal => %f <<<-------- %d\n", ScoreTotal, msg.ID)
