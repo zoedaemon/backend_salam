@@ -536,6 +536,7 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 				if ok {
 					fmt.Printf("########## %s => %s #########\n", word, SingleLokasi.NamaLokasi)
 					skipper = 0 //jgn cek lokasi lg kata selanjutnya
+					LokasiOccurence = append(LokasiOccurence, SingleLokasi)//hedehh harus di simpan di bagian ini jg
 				} else {
 					//asumsi nama kelurahan hanya 2 kata saja, jgn paksa menemukan t4 yg valid
 					if skipper >= 3 {
@@ -579,7 +580,6 @@ func handleConnection(newmsg []byte, tags_obj map[string]*Tags, lokasi_obj map[s
 				fmt.Printf("########## %s => %s #########\n", word, SingleLokasi.NamaLokasi)
 				LokasiOccurence = append(LokasiOccurence, SingleLokasi)
 			}
-
 		}
 
 		fmt.Printf("-------->>> ScoreTotal => %f <<<-------- %d\n", ScoreTotal, msg.ID)
