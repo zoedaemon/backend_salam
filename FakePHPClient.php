@@ -23,7 +23,7 @@ else {
 Warning: socket_write(): unable to write to socket [0]: An established connection was aborted by the software in your host machine.
 */
 $messages = array(
-	"lokasi Kereng Bengkirai terdapat lubang-lubang yg menganga"
+	"di lokasi Sabaru terdapat lubang-lubang yg menganga"
 /*	
 	"malam td rumah kami kebanjiran, dan sampai sekarang belum surut2, tolong kirim bantuan",
 	"kebakaran di daerah jalan rusak flamboyan segera kirim pemadam kebakaran skrg",
