@@ -33,7 +33,7 @@ $sql = "SELECT ID, SenderNumber, TextDecoded FROM inbox WHERE processed = 'false
 $qry = $mysqli->query($sql);
 
  
-if ($arr = $qry->fetch_array(MYSQLI_BOTH)) {
+while ($arr = $qry->fetch_array(MYSQLI_BOTH)) {
 	$socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 	$connection =  @socket_connect($socket, '127.0.0.1', 1999);
 
@@ -52,7 +52,8 @@ if ($arr = $qry->fetch_array(MYSQLI_BOTH)) {
 	$a = socket_write($socket, "$secret\n");
 	var_dump($a);
 
-	$a = socket_write($socket, '{"id":'.$arr['ID'].', "no-telp":"'.$arr['SenderNumber'].'", "sms":"'.$arr['TextDecoded']."\", \"secret\":\"$secret\"}\n");
+	$pesan = str_replace("\n", ", ", $arr['TextDecoded']);
+	$a = socket_write($socket, '{"id":'.$arr['ID'].', "no-telp":"'.$arr['SenderNumber'].'", "sms":"'.$pesan."\", \"secret\":\"$secret\"}\n");
 	var_dump($a);
 
 	$sql = "UPDATE inbox SET processed='true' WHERE ID='".$arr['ID']."'";
